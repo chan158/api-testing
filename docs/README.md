@@ -27,12 +27,24 @@ Currently, it supports the following kinds of services:
 
 * Operate System services
   * Linux, and Darwin
-* Podman, and Docker
+* [Podman](https://github.com/containers/podman), and Docker
 
 Please see the following example usage:
 
 ```shell
-atest service start -m podman --version master
+sudo atest service install -m podman --version master
+```
+
+the default web server port is `8080`. So you can visit it via: http://localhost:8080
+
+## Run in k3s
+
+```shell
+sudo k3s server --write-kubeconfig-mode 666
+
+k3s kubectl apply -k sample/kubernetes/default
+
+kustomize build sample/kubernetes/docker.io/ | k3s kubectl apply -f -
 ```
 
 ## Storage
@@ -41,7 +53,9 @@ There are multiple storage backends supported. See the status from the list:
 | Name | Status |
 |---|---|
 | Local Storage | Ready |
+| S3 | Ready |
 | ORM DataBase | Developing |
+| Git Repository | Developing |
 | Etcd DataBase | Developing |
 
 ### Local Storage
@@ -98,8 +112,66 @@ podman run -p 7071:7071 \
     ghcr.io/linuxsuren/api-testing:master atest-store-orm
 ```
 
+### S3 Storage
+You can use a S3 compatible storage as the storage backend.
+
+```shell
+# The default port is 7072
+podman run --network host \
+    ghcr.io/linuxsuren/api-testing:master atest-store-s3
+```
+
+See also the expected configuration below:
+
+```yaml
+- name: s3
+  url: http://172.11.0.13:30999   # address of the s3 server
+  kind:
+    name: s3
+    url: localhost:7072           # address of the s3 storage extension
+  properties:
+    accessKeyID: 6e03rIMChrsZ6YZl
+    secretAccessKey: F0xH6o2qRYTyAUyRuXO81B4gj7zUrSaj
+    disableSSL:  true
+    forcepathstyle: true
+    bucket: vm1
+    region: cn
+```
+
+### Git Storage
+You can use a git repository as the storage backend.
+
+```shell
+# The default port is 7074
+podman run --network host \
+    ghcr.io/linuxsuren/api-testing:master atest-store-git
+```
+
+See also the expected configuration below:
+
+```yaml
+- name: git
+  url: http://172.11.0.13:30999   # address of the git repository
+  username: linuxsuren
+  password: linuxsuren
+  kind:
+    name: git
+    url: localhost:7074           # address of the git storage extension
+  properties:
+    targetPath: .
+```
+
+## Secret Server
+You can put the sensitive information into a secret server. For example, [Vault](https://www.github.com/hashicorp/vault).
+
+Connect to [a vault extension](https://github.com/LinuxSuRen/api-testing-secret-extension) via flag: `--secret-server`. Such as:
+
+```shell
+atest server --secret-server localhost:7073
+```
+
 ## Extensions
-Developers could have a storage extension. Implement a gRPC server according to [loader.proto](../pkg/testing/remote/loader.proto) is required.
+Developers could have storage, secret extensions. Implement a gRPC server according to [loader.proto](../pkg/testing/remote/loader.proto) is required.
 
 ## Official Images
 You could find the official images from both [Docker Hub](https://hub.docker.com/r/linuxsuren/api-testing) and [GitHub Images](https://github.com/users/LinuxSuRen/packages/container/package/api-testing). See the image path:

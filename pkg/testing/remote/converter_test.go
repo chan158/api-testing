@@ -12,7 +12,7 @@ func TestConvert(t *testing.T) {
 	t.Run("convertToNormalTestSuite, empty object", func(t *testing.T) {
 		assert.Equal(t, &atest.TestSuite{
 			Param: map[string]string{},
-		}, convertToNormalTestSuite(&TestSuite{}))
+		}, ConvertToNormalTestSuite(&TestSuite{}))
 	})
 
 	t.Run("convertToNormalTestSuite, normal object", func(t *testing.T) {
@@ -22,19 +22,28 @@ func TestConvert(t *testing.T) {
 				Kind: "http",
 				URL:  "/v1",
 			},
-		}, convertToNormalTestSuite(&TestSuite{
+			Items: []atest.TestCase{{
+				Name: "fake",
+			}},
+		}, ConvertToNormalTestSuite(&TestSuite{
 			Param: defaultPairs,
 			Spec: &server.APISpec{
 				Url:  "/v1",
 				Kind: "http",
 			},
+			Items: []*server.TestCase{{
+				Name: "fake",
+			}},
 		}))
 	})
 
 	t.Run("convertToGRPCTestSuite, normal object", func(t *testing.T) {
-		result := convertToGRPCTestSuite(&atest.TestSuite{
+		result := ConvertToGRPCTestSuite(&atest.TestSuite{
 			API:   "v1",
 			Param: defaultMap,
+			Items: []atest.TestCase{{
+				Name: "fake",
+			}},
 		})
 		assert.Equal(t, "v1", result.Api)
 		assert.Equal(t, defaultPairs, result.Param)
@@ -52,7 +61,7 @@ func TestConvert(t *testing.T) {
 				BodyFieldsExpect: defaultInterMap,
 				Header:           map[string]string{},
 			},
-		}, convertToNormalTestCase(&server.TestCase{
+		}, ConvertToNormalTestCase(&server.TestCase{
 			Request: &server.Request{
 				Api:    "/v1",
 				Header: defaultPairs,
@@ -64,7 +73,7 @@ func TestConvert(t *testing.T) {
 	})
 
 	t.Run("convertToGRPCTestCase", func(t *testing.T) {
-		result := convertToGRPCTestCase(atest.TestCase{
+		result := ConvertToGRPCTestCase(atest.TestCase{
 			Expect: atest.Response{
 				BodyFieldsExpect: defaultInterMap,
 				Header:           defaultMap,

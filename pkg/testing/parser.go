@@ -41,6 +41,15 @@ func Parse(data []byte) (testSuite *TestSuite, err error) {
 	return
 }
 
+// ParseFromStream parses the stream and returns the test suite
+func ParseFromStream(stream io.Reader) (testSuite *TestSuite, err error) {
+	var data []byte
+	if data, err = io.ReadAll(stream); err == nil {
+		testSuite, err = ParseFromData(data)
+	}
+	return
+}
+
 // ParseFromData parses data and returns the test suite
 func ParseFromData(data []byte) (testSuite *TestSuite, err error) {
 	testSuite = &TestSuite{}
@@ -149,6 +158,14 @@ func (r *Request) Render(ctx interface{}, dataDir string) (err error) {
 	// setting default values
 	r.Method = EmptyThenDefault(r.Method, http.MethodGet)
 	return
+}
+
+// RenderAPI will combine with the base API
+func (r *Request) RenderAPI(base string) {
+	// reuse the API prefix
+	if strings.HasPrefix(r.API, "/") {
+		r.API = fmt.Sprintf("%s%s", base, r.API)
+	}
 }
 
 // GetBody returns the request body

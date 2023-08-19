@@ -6,6 +6,7 @@ import (
 	context "context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	reflect "reflect"
 	"regexp"
@@ -14,9 +15,11 @@ import (
 	_ "embed"
 
 	"github.com/linuxsuren/api-testing/pkg/apispec"
+	"github.com/linuxsuren/api-testing/pkg/generator"
 	"github.com/linuxsuren/api-testing/pkg/render"
 	"github.com/linuxsuren/api-testing/pkg/runner"
 	"github.com/linuxsuren/api-testing/pkg/testing"
+	"github.com/linuxsuren/api-testing/pkg/util"
 	"github.com/linuxsuren/api-testing/pkg/version"
 	"github.com/linuxsuren/api-testing/sample"
 	"google.golang.org/grpc/metadata"
@@ -28,14 +31,56 @@ type server struct {
 	loader             testing.Writer
 	storeWriterFactory testing.StoreWriterFactory
 	configDir          string
+
+	secretServer SecretServiceServer
+}
+
+type SecretServiceServer interface {
+	GetSecrets(context.Context, *Empty) (*Secrets, error)
+	CreateSecret(context.Context, *Secret) (*CommonResult, error)
+	DeleteSecret(context.Context, *Secret) (*CommonResult, error)
+	UpdateSecret(context.Context, *Secret) (*CommonResult, error)
+}
+
+type SecertServiceGetable interface {
+	GetSecret(context.Context, *Secret) (*Secret, error)
+}
+
+type fakeSecretServer struct{}
+
+var errNoSecretService = errors.New("no secret service found")
+
+func (f *fakeSecretServer) GetSecrets(ctx context.Context, in *Empty) (reply *Secrets, err error) {
+	err = errNoSecretService
+	return
+}
+
+func (f *fakeSecretServer) CreateSecret(ctx context.Context, in *Secret) (reply *CommonResult, err error) {
+	err = errNoSecretService
+	return
+}
+
+func (f *fakeSecretServer) DeleteSecret(ctx context.Context, in *Secret) (reply *CommonResult, err error) {
+	err = errNoSecretService
+	return
+}
+
+func (f *fakeSecretServer) UpdateSecret(ctx context.Context, in *Secret) (reply *CommonResult, err error) {
+	err = errNoSecretService
+	return
 }
 
 // NewRemoteServer creates a remote server instance
-func NewRemoteServer(loader testing.Writer, storeWriterFactory testing.StoreWriterFactory, configDir string) RunnerServer {
+func NewRemoteServer(loader testing.Writer, storeWriterFactory testing.StoreWriterFactory, secretServer SecretServiceServer, configDir string) RunnerServer {
+	if secretServer == nil {
+		secretServer = &fakeSecretServer{}
+	}
+
 	return &server{
 		loader:             loader,
 		storeWriterFactory: storeWriterFactory,
 		configDir:          configDir,
+		secretServer:       secretServer,
 	}
 }
 
@@ -108,19 +153,11 @@ func (s *server) getLoader(ctx context.Context) (loader testing.Writer) {
 		storeNameMeta := mdd.Get(HeaderKeyStoreName)
 		if len(storeNameMeta) > 0 {
 			storeName := storeNameMeta[0]
-			if storeName == "local" {
+			if storeName == "local" || storeName == "" {
 				return
 			}
 
-			store, err := testing.NewStoreFactory(s.configDir).GetStore(storeName)
-			if err == nil && store != nil {
-				loader, err = s.storeWriterFactory.NewInstance(*store)
-				if err != nil {
-					fmt.Println("failed to new grpc loader from store", store.Name, err)
-				}
-			} else {
-				fmt.Println("failed to get store", storeName, err)
-			}
+			loader, _ = s.getLoaderByStoreName(storeName)
 		}
 	}
 	return
@@ -162,17 +199,15 @@ func (s *server) Run(ctx context.Context, task *TestTask) (reply *TestResult, er
 	reply = &TestResult{}
 
 	for _, testCase := range suite.Items {
-		simpleRunner := runner.NewSimpleTestCaseRunner()
-		simpleRunner.WithOutputWriter(buf)
-		simpleRunner.WithWriteLevel(task.Level)
+		suiteRunner := runner.GetTestSuiteRunner(suite)
+		suiteRunner.WithOutputWriter(buf)
+		suiteRunner.WithWriteLevel(task.Level)
 
 		// reuse the API prefix
-		if strings.HasPrefix(testCase.Request.API, "/") {
-			testCase.Request.API = fmt.Sprintf("%s%s", suite.API, testCase.Request.API)
-		}
+		testCase.Request.RenderAPI(suite.API)
 
-		output, testErr := simpleRunner.RunTestCase(&testCase, dataContext, ctx)
-		if getter, ok := simpleRunner.(runner.HTTPResponseRecord); ok {
+		output, testErr := suiteRunner.RunTestCase(&testCase, dataContext, ctx)
+		if getter, ok := suiteRunner.(runner.HTTPResponseRecord); ok {
 			resp := getter.GetResponseRecord()
 			reply.TestCaseResult = append(reply.TestCaseResult, &TestCaseResult{
 				StatusCode: int32(resp.StatusCode),
@@ -461,6 +496,69 @@ func (s *server) DeleteTestCase(ctx context.Context, in *TestCaseIdentity) (repl
 	return
 }
 
+// code generator
+func (s *server) ListCodeGenerator(ctx context.Context, in *Empty) (reply *SimpleList, err error) {
+	reply = &SimpleList{}
+
+	generators := generator.GetCodeGenerators()
+	for name := range generators {
+		reply.Data = append(reply.Data, &Pair{
+			Key: name,
+		})
+	}
+	return
+}
+
+func (s *server) GenerateCode(ctx context.Context, in *CodeGenerateRequest) (reply *CommonResult, err error) {
+	reply = &CommonResult{}
+
+	instance := generator.GetCodeGenerator(in.Generator)
+	if instance == nil {
+		reply.Success = false
+		reply.Message = fmt.Sprintf("generator '%s' not found", in.Generator)
+	} else {
+		var result testing.TestCase
+		loader := s.getLoader(ctx)
+		if result, err = loader.GetTestCase(in.TestSuite, in.TestCase); err == nil {
+			output, genErr := instance.Generate(&result)
+			reply.Success = genErr == nil
+			reply.Message = util.OrErrorMessage(genErr, output)
+		}
+	}
+	return
+}
+
+// converter
+func (s *server) ListConverter(ctx context.Context, in *Empty) (reply *SimpleList, err error) {
+	reply = &SimpleList{}
+	converters := generator.GetTestSuiteConverters()
+	for name := range converters {
+		reply.Data = append(reply.Data, &Pair{
+			Key: name,
+		})
+	}
+	return
+}
+
+func (s *server) ConvertTestSuite(ctx context.Context, in *CodeGenerateRequest) (reply *CommonResult, err error) {
+	reply = &CommonResult{}
+
+	instance := generator.GetTestSuiteConverter(in.Generator)
+	if instance == nil {
+		reply.Success = false
+		reply.Message = fmt.Sprintf("converter '%s' not found", in.Generator)
+	} else {
+		var result testing.TestSuite
+		loader := s.getLoader(ctx)
+		if result, err = loader.GetTestSuite(in.TestSuite, true); err == nil {
+			output, genErr := instance.Convert(&result)
+			reply.Success = genErr == nil
+			reply.Message = util.OrErrorMessage(genErr, output)
+		}
+	}
+	return
+}
+
 // Sample returns a sample of the test task
 func (s *server) Sample(ctx context.Context, in *Empty) (reply *HelloReply, err error) {
 	reply = &HelloReply{Message: sample.TestSuiteGitLab}
@@ -482,21 +580,18 @@ func (s *server) GetSuggestedAPIs(ctx context.Context, in *TestSuiteIdentity) (r
 	reply = &TestCases{}
 
 	var suite *testing.TestSuite
-	loader := s.loader
-	if suite, _, err = loader.GetSuite(in.Name); err != nil {
+	loader := s.getLoader(ctx)
+	if suite, _, err = loader.GetSuite(in.Name); err != nil || suite == nil {
 		return
 	}
 
-	if suite == nil || suite.Spec.URL == "" {
+	if suite.Spec.URL == "" {
 		return
 	}
 
-	reply.Data = []*TestCase{{
-		Request: &Request{},
-	}}
-
+	fmt.Println("Finding APIs from", in.Name, "with loader", reflect.TypeOf(loader))
 	var swaggerAPI *apispec.Swagger
-	if swaggerAPI, err = apispec.ParseURLToSwagger(suite.Spec.URL); err == nil {
+	if swaggerAPI, err = apispec.ParseURLToSwagger(suite.Spec.URL); err == nil && swaggerAPI != nil {
 		for api, item := range swaggerAPI.Paths {
 			for method, oper := range item {
 				reply.Data = append(reply.Data, &TestCase{
@@ -529,6 +624,40 @@ func (s *server) FunctionsQuery(ctx context.Context, in *SimpleQuery) (reply *Pa
 	return
 }
 
+// FunctionsQueryStream works like FunctionsQuery but is implemented in bidirectional streaming
+func (s *server) FunctionsQueryStream(srv Runner_FunctionsQueryStreamServer) error {
+	ctx := srv.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			in, err := srv.Recv()
+			if err != nil {
+				if err == io.EOF {
+					return nil
+				}
+				return err
+			}
+			reply := &Pairs{}
+			in.Name = strings.ToLower(in.Name)
+
+			for name, fn := range render.FuncMap() {
+				lowerCaseName := strings.ToLower(name)
+				if in.Name == "" || strings.Contains(lowerCaseName, in.Name) {
+					reply.Data = append(reply.Data, &Pair{
+						Key:   name,
+						Value: fmt.Sprintf("%v", reflect.TypeOf(fn)),
+					})
+				}
+			}
+			if err := srv.Send(reply); err != nil {
+				return err
+			}
+		}
+	}
+}
+
 func (s *server) GetStores(ctx context.Context, in *Empty) (reply *Stores, err error) {
 	storeFactory := testing.NewStoreFactory(s.configDir)
 	var stores []testing.Store
@@ -537,18 +666,77 @@ func (s *server) GetStores(ctx context.Context, in *Empty) (reply *Stores, err e
 			Data: make([]*Store, 0),
 		}
 		for _, item := range stores {
-			reply.Data = append(reply.Data, ToGRPCStore(item))
+			grpcStore := ToGRPCStore(item)
+
+			storeStatus, sErr := s.VerifyStore(ctx, &SimpleQuery{Name: item.Name})
+			grpcStore.Ready = sErr == nil && storeStatus.Success
+			grpcStore.Password = "******" // return a placeholder instead of the actual value for the security reason
+
+			reply.Data = append(reply.Data, grpcStore)
 		}
+		reply.Data = append(reply.Data, &Store{
+			Name:  "local",
+			Kind:  &StoreKind{},
+			Ready: true,
+		})
 	}
 	return
 }
 func (s *server) CreateStore(ctx context.Context, in *Store) (reply *Store, err error) {
+	reply = &Store{}
+	storeFactory := testing.NewStoreFactory(s.configDir)
+	err = storeFactory.CreateStore(ToNormalStore(in))
+	return
+}
+func (s *server) UpdateStore(ctx context.Context, in *Store) (reply *Store, err error) {
+	reply = &Store{}
+	storeFactory := testing.NewStoreFactory(s.configDir)
+	err = storeFactory.UpdateStore(ToNormalStore(in))
 	return
 }
 func (s *server) DeleteStore(ctx context.Context, in *Store) (reply *Store, err error) {
+	reply = &Store{}
+	storeFactory := testing.NewStoreFactory(s.configDir)
+	err = storeFactory.DeleteStore(in.Name)
 	return
 }
 func (s *server) VerifyStore(ctx context.Context, in *SimpleQuery) (reply *CommonResult, err error) {
+	// TODO need to implement
+	reply = &CommonResult{}
+	var loader testing.Writer
+	if loader, err = s.getLoaderByStoreName(in.Name); err == nil && loader != nil {
+		verifyErr := loader.Verify()
+		reply.Success = verifyErr == nil
+		reply.Message = util.OKOrErrorMessage(verifyErr)
+	}
+	return
+}
+
+// secret related interfaces
+func (s *server) GetSecrets(ctx context.Context, in *Empty) (reply *Secrets, err error) {
+	return s.secretServer.GetSecrets(ctx, in)
+}
+func (s *server) CreateSecret(ctx context.Context, in *Secret) (reply *CommonResult, err error) {
+	return s.secretServer.CreateSecret(ctx, in)
+}
+func (s *server) DeleteSecret(ctx context.Context, in *Secret) (reply *CommonResult, err error) {
+	return s.secretServer.DeleteSecret(ctx, in)
+}
+func (s *server) UpdateSecret(ctx context.Context, in *Secret) (reply *CommonResult, err error) {
+	return s.secretServer.UpdateSecret(ctx, in)
+}
+
+func (s *server) getLoaderByStoreName(storeName string) (loader testing.Writer, err error) {
+	var store *testing.Store
+	store, err = testing.NewStoreFactory(s.configDir).GetStore(storeName)
+	if err == nil && store != nil {
+		loader, err = s.storeWriterFactory.NewInstance(*store)
+		if err != nil {
+			err = fmt.Errorf("failed to new grpc loader from store %s, err: %v", store.Name, err)
+		}
+	} else {
+		err = fmt.Errorf("failed to get store %s, err: %v", storeName, err)
+	}
 	return
 }
 

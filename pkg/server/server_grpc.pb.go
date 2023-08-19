@@ -37,17 +37,30 @@ type RunnerClient interface {
 	CreateTestCase(ctx context.Context, in *TestCaseWithSuite, opts ...grpc.CallOption) (*HelloReply, error)
 	UpdateTestCase(ctx context.Context, in *TestCaseWithSuite, opts ...grpc.CallOption) (*HelloReply, error)
 	DeleteTestCase(ctx context.Context, in *TestCaseIdentity, opts ...grpc.CallOption) (*HelloReply, error)
+	// code generator
+	ListCodeGenerator(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SimpleList, error)
+	GenerateCode(ctx context.Context, in *CodeGenerateRequest, opts ...grpc.CallOption) (*CommonResult, error)
+	// converter
+	ListConverter(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SimpleList, error)
+	ConvertTestSuite(ctx context.Context, in *CodeGenerateRequest, opts ...grpc.CallOption) (*CommonResult, error)
 	// common services
 	PopularHeaders(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Pairs, error)
 	FunctionsQuery(ctx context.Context, in *SimpleQuery, opts ...grpc.CallOption) (*Pairs, error)
+	FunctionsQueryStream(ctx context.Context, opts ...grpc.CallOption) (Runner_FunctionsQueryStreamClient, error)
 	GetVersion(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*HelloReply, error)
 	Sample(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*HelloReply, error)
 	// stores related interfaces
 	GetStoreKinds(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*StoreKinds, error)
 	GetStores(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Stores, error)
 	CreateStore(ctx context.Context, in *Store, opts ...grpc.CallOption) (*Store, error)
+	UpdateStore(ctx context.Context, in *Store, opts ...grpc.CallOption) (*Store, error)
 	DeleteStore(ctx context.Context, in *Store, opts ...grpc.CallOption) (*Store, error)
 	VerifyStore(ctx context.Context, in *SimpleQuery, opts ...grpc.CallOption) (*CommonResult, error)
+	// secret related interfaces
+	GetSecrets(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Secrets, error)
+	CreateSecret(ctx context.Context, in *Secret, opts ...grpc.CallOption) (*CommonResult, error)
+	DeleteSecret(ctx context.Context, in *Secret, opts ...grpc.CallOption) (*CommonResult, error)
+	UpdateSecret(ctx context.Context, in *Secret, opts ...grpc.CallOption) (*CommonResult, error)
 }
 
 type runnerClient struct {
@@ -175,6 +188,42 @@ func (c *runnerClient) DeleteTestCase(ctx context.Context, in *TestCaseIdentity,
 	return out, nil
 }
 
+func (c *runnerClient) ListCodeGenerator(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SimpleList, error) {
+	out := new(SimpleList)
+	err := c.cc.Invoke(ctx, "/server.Runner/ListCodeGenerator", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runnerClient) GenerateCode(ctx context.Context, in *CodeGenerateRequest, opts ...grpc.CallOption) (*CommonResult, error) {
+	out := new(CommonResult)
+	err := c.cc.Invoke(ctx, "/server.Runner/GenerateCode", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runnerClient) ListConverter(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SimpleList, error) {
+	out := new(SimpleList)
+	err := c.cc.Invoke(ctx, "/server.Runner/ListConverter", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runnerClient) ConvertTestSuite(ctx context.Context, in *CodeGenerateRequest, opts ...grpc.CallOption) (*CommonResult, error) {
+	out := new(CommonResult)
+	err := c.cc.Invoke(ctx, "/server.Runner/ConvertTestSuite", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *runnerClient) PopularHeaders(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Pairs, error) {
 	out := new(Pairs)
 	err := c.cc.Invoke(ctx, "/server.Runner/PopularHeaders", in, out, opts...)
@@ -191,6 +240,37 @@ func (c *runnerClient) FunctionsQuery(ctx context.Context, in *SimpleQuery, opts
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *runnerClient) FunctionsQueryStream(ctx context.Context, opts ...grpc.CallOption) (Runner_FunctionsQueryStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Runner_ServiceDesc.Streams[0], "/server.Runner/FunctionsQueryStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &runnerFunctionsQueryStreamClient{stream}
+	return x, nil
+}
+
+type Runner_FunctionsQueryStreamClient interface {
+	Send(*SimpleQuery) error
+	Recv() (*Pairs, error)
+	grpc.ClientStream
+}
+
+type runnerFunctionsQueryStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *runnerFunctionsQueryStreamClient) Send(m *SimpleQuery) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *runnerFunctionsQueryStreamClient) Recv() (*Pairs, error) {
+	m := new(Pairs)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *runnerClient) GetVersion(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*HelloReply, error) {
@@ -238,6 +318,15 @@ func (c *runnerClient) CreateStore(ctx context.Context, in *Store, opts ...grpc.
 	return out, nil
 }
 
+func (c *runnerClient) UpdateStore(ctx context.Context, in *Store, opts ...grpc.CallOption) (*Store, error) {
+	out := new(Store)
+	err := c.cc.Invoke(ctx, "/server.Runner/UpdateStore", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *runnerClient) DeleteStore(ctx context.Context, in *Store, opts ...grpc.CallOption) (*Store, error) {
 	out := new(Store)
 	err := c.cc.Invoke(ctx, "/server.Runner/DeleteStore", in, out, opts...)
@@ -250,6 +339,42 @@ func (c *runnerClient) DeleteStore(ctx context.Context, in *Store, opts ...grpc.
 func (c *runnerClient) VerifyStore(ctx context.Context, in *SimpleQuery, opts ...grpc.CallOption) (*CommonResult, error) {
 	out := new(CommonResult)
 	err := c.cc.Invoke(ctx, "/server.Runner/VerifyStore", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runnerClient) GetSecrets(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Secrets, error) {
+	out := new(Secrets)
+	err := c.cc.Invoke(ctx, "/server.Runner/GetSecrets", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runnerClient) CreateSecret(ctx context.Context, in *Secret, opts ...grpc.CallOption) (*CommonResult, error) {
+	out := new(CommonResult)
+	err := c.cc.Invoke(ctx, "/server.Runner/CreateSecret", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runnerClient) DeleteSecret(ctx context.Context, in *Secret, opts ...grpc.CallOption) (*CommonResult, error) {
+	out := new(CommonResult)
+	err := c.cc.Invoke(ctx, "/server.Runner/DeleteSecret", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runnerClient) UpdateSecret(ctx context.Context, in *Secret, opts ...grpc.CallOption) (*CommonResult, error) {
+	out := new(CommonResult)
+	err := c.cc.Invoke(ctx, "/server.Runner/UpdateSecret", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -275,17 +400,30 @@ type RunnerServer interface {
 	CreateTestCase(context.Context, *TestCaseWithSuite) (*HelloReply, error)
 	UpdateTestCase(context.Context, *TestCaseWithSuite) (*HelloReply, error)
 	DeleteTestCase(context.Context, *TestCaseIdentity) (*HelloReply, error)
+	// code generator
+	ListCodeGenerator(context.Context, *Empty) (*SimpleList, error)
+	GenerateCode(context.Context, *CodeGenerateRequest) (*CommonResult, error)
+	// converter
+	ListConverter(context.Context, *Empty) (*SimpleList, error)
+	ConvertTestSuite(context.Context, *CodeGenerateRequest) (*CommonResult, error)
 	// common services
 	PopularHeaders(context.Context, *Empty) (*Pairs, error)
 	FunctionsQuery(context.Context, *SimpleQuery) (*Pairs, error)
+	FunctionsQueryStream(Runner_FunctionsQueryStreamServer) error
 	GetVersion(context.Context, *Empty) (*HelloReply, error)
 	Sample(context.Context, *Empty) (*HelloReply, error)
 	// stores related interfaces
 	GetStoreKinds(context.Context, *Empty) (*StoreKinds, error)
 	GetStores(context.Context, *Empty) (*Stores, error)
 	CreateStore(context.Context, *Store) (*Store, error)
+	UpdateStore(context.Context, *Store) (*Store, error)
 	DeleteStore(context.Context, *Store) (*Store, error)
 	VerifyStore(context.Context, *SimpleQuery) (*CommonResult, error)
+	// secret related interfaces
+	GetSecrets(context.Context, *Empty) (*Secrets, error)
+	CreateSecret(context.Context, *Secret) (*CommonResult, error)
+	DeleteSecret(context.Context, *Secret) (*CommonResult, error)
+	UpdateSecret(context.Context, *Secret) (*CommonResult, error)
 	mustEmbedUnimplementedRunnerServer()
 }
 
@@ -332,11 +470,26 @@ func (UnimplementedRunnerServer) UpdateTestCase(context.Context, *TestCaseWithSu
 func (UnimplementedRunnerServer) DeleteTestCase(context.Context, *TestCaseIdentity) (*HelloReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteTestCase not implemented")
 }
+func (UnimplementedRunnerServer) ListCodeGenerator(context.Context, *Empty) (*SimpleList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCodeGenerator not implemented")
+}
+func (UnimplementedRunnerServer) GenerateCode(context.Context, *CodeGenerateRequest) (*CommonResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateCode not implemented")
+}
+func (UnimplementedRunnerServer) ListConverter(context.Context, *Empty) (*SimpleList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListConverter not implemented")
+}
+func (UnimplementedRunnerServer) ConvertTestSuite(context.Context, *CodeGenerateRequest) (*CommonResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConvertTestSuite not implemented")
+}
 func (UnimplementedRunnerServer) PopularHeaders(context.Context, *Empty) (*Pairs, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PopularHeaders not implemented")
 }
 func (UnimplementedRunnerServer) FunctionsQuery(context.Context, *SimpleQuery) (*Pairs, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FunctionsQuery not implemented")
+}
+func (UnimplementedRunnerServer) FunctionsQueryStream(Runner_FunctionsQueryStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method FunctionsQueryStream not implemented")
 }
 func (UnimplementedRunnerServer) GetVersion(context.Context, *Empty) (*HelloReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVersion not implemented")
@@ -353,11 +506,26 @@ func (UnimplementedRunnerServer) GetStores(context.Context, *Empty) (*Stores, er
 func (UnimplementedRunnerServer) CreateStore(context.Context, *Store) (*Store, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateStore not implemented")
 }
+func (UnimplementedRunnerServer) UpdateStore(context.Context, *Store) (*Store, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateStore not implemented")
+}
 func (UnimplementedRunnerServer) DeleteStore(context.Context, *Store) (*Store, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteStore not implemented")
 }
 func (UnimplementedRunnerServer) VerifyStore(context.Context, *SimpleQuery) (*CommonResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VerifyStore not implemented")
+}
+func (UnimplementedRunnerServer) GetSecrets(context.Context, *Empty) (*Secrets, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSecrets not implemented")
+}
+func (UnimplementedRunnerServer) CreateSecret(context.Context, *Secret) (*CommonResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateSecret not implemented")
+}
+func (UnimplementedRunnerServer) DeleteSecret(context.Context, *Secret) (*CommonResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSecret not implemented")
+}
+func (UnimplementedRunnerServer) UpdateSecret(context.Context, *Secret) (*CommonResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateSecret not implemented")
 }
 func (UnimplementedRunnerServer) mustEmbedUnimplementedRunnerServer() {}
 
@@ -606,6 +774,78 @@ func _Runner_DeleteTestCase_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Runner_ListCodeGenerator_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnerServer).ListCodeGenerator(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/server.Runner/ListCodeGenerator",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnerServer).ListCodeGenerator(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Runner_GenerateCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CodeGenerateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnerServer).GenerateCode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/server.Runner/GenerateCode",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnerServer).GenerateCode(ctx, req.(*CodeGenerateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Runner_ListConverter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnerServer).ListConverter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/server.Runner/ListConverter",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnerServer).ListConverter(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Runner_ConvertTestSuite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CodeGenerateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnerServer).ConvertTestSuite(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/server.Runner/ConvertTestSuite",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnerServer).ConvertTestSuite(ctx, req.(*CodeGenerateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Runner_PopularHeaders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Empty)
 	if err := dec(in); err != nil {
@@ -640,6 +880,32 @@ func _Runner_FunctionsQuery_Handler(srv interface{}, ctx context.Context, dec fu
 		return srv.(RunnerServer).FunctionsQuery(ctx, req.(*SimpleQuery))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _Runner_FunctionsQueryStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RunnerServer).FunctionsQueryStream(&runnerFunctionsQueryStreamServer{stream})
+}
+
+type Runner_FunctionsQueryStreamServer interface {
+	Send(*Pairs) error
+	Recv() (*SimpleQuery, error)
+	grpc.ServerStream
+}
+
+type runnerFunctionsQueryStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *runnerFunctionsQueryStreamServer) Send(m *Pairs) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *runnerFunctionsQueryStreamServer) Recv() (*SimpleQuery, error) {
+	m := new(SimpleQuery)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func _Runner_GetVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -732,6 +998,24 @@ func _Runner_CreateStore_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Runner_UpdateStore_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Store)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnerServer).UpdateStore(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/server.Runner/UpdateStore",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnerServer).UpdateStore(ctx, req.(*Store))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Runner_DeleteStore_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Store)
 	if err := dec(in); err != nil {
@@ -764,6 +1048,78 @@ func _Runner_VerifyStore_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RunnerServer).VerifyStore(ctx, req.(*SimpleQuery))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Runner_GetSecrets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnerServer).GetSecrets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/server.Runner/GetSecrets",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnerServer).GetSecrets(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Runner_CreateSecret_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Secret)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnerServer).CreateSecret(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/server.Runner/CreateSecret",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnerServer).CreateSecret(ctx, req.(*Secret))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Runner_DeleteSecret_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Secret)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnerServer).DeleteSecret(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/server.Runner/DeleteSecret",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnerServer).DeleteSecret(ctx, req.(*Secret))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Runner_UpdateSecret_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Secret)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnerServer).UpdateSecret(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/server.Runner/UpdateSecret",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnerServer).UpdateSecret(ctx, req.(*Secret))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -828,6 +1184,22 @@ var Runner_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Runner_DeleteTestCase_Handler,
 		},
 		{
+			MethodName: "ListCodeGenerator",
+			Handler:    _Runner_ListCodeGenerator_Handler,
+		},
+		{
+			MethodName: "GenerateCode",
+			Handler:    _Runner_GenerateCode_Handler,
+		},
+		{
+			MethodName: "ListConverter",
+			Handler:    _Runner_ListConverter_Handler,
+		},
+		{
+			MethodName: "ConvertTestSuite",
+			Handler:    _Runner_ConvertTestSuite_Handler,
+		},
+		{
 			MethodName: "PopularHeaders",
 			Handler:    _Runner_PopularHeaders_Handler,
 		},
@@ -856,6 +1228,10 @@ var Runner_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Runner_CreateStore_Handler,
 		},
 		{
+			MethodName: "UpdateStore",
+			Handler:    _Runner_UpdateStore_Handler,
+		},
+		{
 			MethodName: "DeleteStore",
 			Handler:    _Runner_DeleteStore_Handler,
 		},
@@ -863,7 +1239,30 @@ var Runner_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "VerifyStore",
 			Handler:    _Runner_VerifyStore_Handler,
 		},
+		{
+			MethodName: "GetSecrets",
+			Handler:    _Runner_GetSecrets_Handler,
+		},
+		{
+			MethodName: "CreateSecret",
+			Handler:    _Runner_CreateSecret_Handler,
+		},
+		{
+			MethodName: "DeleteSecret",
+			Handler:    _Runner_DeleteSecret_Handler,
+		},
+		{
+			MethodName: "UpdateSecret",
+			Handler:    _Runner_UpdateSecret_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "FunctionsQueryStream",
+			Handler:       _Runner_FunctionsQueryStream_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "pkg/server/server.proto",
 }

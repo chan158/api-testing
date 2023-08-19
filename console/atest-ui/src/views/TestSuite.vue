@@ -11,7 +11,7 @@ const props = defineProps({
   store: String,
 })
 const emit = defineEmits(['updated'])
-let querySuggestedAPIs = NewSuggestedAPIsQuery(props.name!)
+let querySuggestedAPIs = NewSuggestedAPIsQuery(props.store!, props.name!)
 
 const suite = ref({
   name: '',
@@ -23,6 +23,8 @@ const suite = ref({
   }
 } as Suite)
 function load() {
+  if (!props.name || props.store === "") return
+
   const requestOptions = {
     method: 'POST',
     headers: {
@@ -87,7 +89,7 @@ const rules = reactive<FormRules<Suite>>({
 
 function openNewTestCaseDialog() {
   dialogVisible.value = true
-  querySuggestedAPIs = NewSuggestedAPIsQuery(props.name!)
+  querySuggestedAPIs = NewSuggestedAPIsQuery(props.store!, props.name!)
 }
 
 const submitForm = async (formEl: FormInstance | undefined) => {
@@ -140,6 +142,43 @@ function del() {
     .then((e) => {
       ElMessage({
         message: 'Deleted.',
+        type: 'success'
+      })
+      emit('updated')
+    })
+    .catch((e) => {
+      ElMessage.error('Oops, ' + e)
+    })
+}
+
+function convert() {
+  const requestOptions = {
+    method: 'POST',
+    headers: {
+      'X-Store-Name': props.store
+    },
+    body: JSON.stringify({
+      Generator: 'jmeter',
+      TestSuite: props.name
+    })
+  }
+  fetch('/server.Runner/ConvertTestSuite', requestOptions)
+    .then((response) => response.json())
+    .then((e) => {
+      const blob = new Blob([e.message], { type: `text/xml;charset=utf-8;` });
+      const link = document.createElement('a');
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `jmeter.jmx`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      ElMessage({
+        message: 'Converted.',
         type: 'success'
       })
       emit('updated')
@@ -216,6 +255,8 @@ function paramChange() {
     <el-button type="primary" @click="del" test-id="suite-del-but">Delete</el-button>
 
     <el-button type="primary" @click="openNewTestCaseDialog" :icon="Edit" test-id="open-new-case-dialog">New TestCase</el-button>
+
+    <el-button type="primary" @click="convert" test-id="convert">Convert</el-button>
   </div>
 
   <el-dialog v-model="dialogVisible" title="Create Test Case" width="40%" draggable>

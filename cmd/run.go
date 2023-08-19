@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -110,6 +109,8 @@ func (o *runOption) preRunE(cmd *cobra.Command, args []string) (err error) {
 		o.reportWriter = runner.NewDiscardResultWriter()
 	case "", "std":
 		o.reportWriter = runner.NewResultWriter(writer)
+	case "pdf":
+		o.reportWriter = runner.NewPDFResultWriter(writer)
 	default:
 		err = fmt.Errorf("not supported report type: '%s'", o.report)
 	}
@@ -237,10 +238,7 @@ func (o *runOption) runSuite(loader testing.Loader, dataContext map[string]inter
 			continue
 		}
 
-		// reuse the API prefix
-		if strings.HasPrefix(testCase.Request.API, "/") {
-			testCase.Request.API = fmt.Sprintf("%s%s", testSuite.API, testCase.Request.API)
-		}
+		testCase.Request.RenderAPI(testSuite.API)
 
 		var output interface{}
 		select {
@@ -252,9 +250,9 @@ func (o *runOption) runSuite(loader testing.Loader, dataContext map[string]inter
 			ctxWithTimeout, _ := context.WithTimeout(ctx, o.requestTimeout)
 			ctxWithTimeout = context.WithValue(ctxWithTimeout, runner.ContextKey("").ParentDir(), loader.GetContext())
 
-			simpleRunner := runner.NewSimpleTestCaseRunner()
-			simpleRunner.WithTestReporter(o.reporter)
-			if output, err = simpleRunner.RunTestCase(&testCase, dataContext, ctxWithTimeout); err != nil && !o.requestIgnoreError {
+			runner := runner.GetTestSuiteRunner(testSuite)
+			runner.WithTestReporter(o.reporter)
+			if output, err = runner.RunTestCase(&testCase, dataContext, ctxWithTimeout); err != nil && !o.requestIgnoreError {
 				err = fmt.Errorf("failed to run '%s', %v", testCase.Name, err)
 				return
 			} else {

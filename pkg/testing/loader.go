@@ -8,6 +8,8 @@ type Loader interface {
 	GetContext() string
 	GetCount() int
 	Reset()
+
+	Verify() (err error)
 }
 
 type Writer interface {

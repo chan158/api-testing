@@ -7,7 +7,7 @@ import (
 	"github.com/linuxsuren/api-testing/pkg/testing"
 )
 
-func convertToNormalTestSuite(suite *TestSuite) (result *testing.TestSuite) {
+func ConvertToNormalTestSuite(suite *TestSuite) (result *testing.TestSuite) {
 	result = &testing.TestSuite{
 		Name:  suite.Name,
 		API:   suite.Api,
@@ -20,10 +20,14 @@ func convertToNormalTestSuite(suite *TestSuite) (result *testing.TestSuite) {
 			URL:  suite.Spec.Url,
 		}
 	}
+
+	for _, testcase := range suite.Items {
+		result.Items = append(result.Items, ConvertToNormalTestCase(testcase))
+	}
 	return
 }
 
-func convertToGRPCTestSuite(suite *testing.TestSuite) (result *TestSuite) {
+func ConvertToGRPCTestSuite(suite *testing.TestSuite) (result *TestSuite) {
 	result = &TestSuite{
 		Name:  suite.Name,
 		Api:   suite.API,
@@ -33,10 +37,14 @@ func convertToGRPCTestSuite(suite *testing.TestSuite) (result *TestSuite) {
 			Url:  suite.Spec.URL,
 		},
 	}
+
+	for _, testcase := range suite.Items {
+		result.Items = append(result.Items, ConvertToGRPCTestCase(testcase))
+	}
 	return
 }
 
-func convertToNormalTestCase(testcase *server.TestCase) (result testing.TestCase) {
+func ConvertToNormalTestCase(testcase *server.TestCase) (result testing.TestCase) {
 	result = testing.TestCase{
 		Name: testcase.Name,
 	}
@@ -63,7 +71,7 @@ func convertToNormalTestCase(testcase *server.TestCase) (result testing.TestCase
 	return
 }
 
-func convertToGRPCTestCase(testcase testing.TestCase) (result *server.TestCase) {
+func ConvertToGRPCTestCase(testcase testing.TestCase) (result *server.TestCase) {
 	result = &server.TestCase{
 		Name: testcase.Name,
 		Request: &server.Request{

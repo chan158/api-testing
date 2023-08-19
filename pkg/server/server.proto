@@ -23,9 +23,18 @@ service Runner {
     rpc UpdateTestCase(TestCaseWithSuite) returns (HelloReply) {}
     rpc DeleteTestCase(TestCaseIdentity) returns (HelloReply) {}
 
+    // code generator
+    rpc ListCodeGenerator(Empty) returns (SimpleList) {}
+    rpc GenerateCode(CodeGenerateRequest)  returns (CommonResult) {}
+
+    // converter
+    rpc ListConverter(Empty) returns (SimpleList) {}
+    rpc ConvertTestSuite(CodeGenerateRequest) returns (CommonResult) {}
+
     // common services
     rpc PopularHeaders(Empty) returns (Pairs) {}
     rpc FunctionsQuery(SimpleQuery) returns (Pairs) {}
+    rpc FunctionsQueryStream(stream SimpleQuery) returns (stream Pairs) {}
     rpc GetVersion(Empty) returns (HelloReply) {}
     rpc Sample(Empty) returns (HelloReply) {}
 
@@ -33,8 +42,15 @@ service Runner {
     rpc GetStoreKinds(Empty) returns (StoreKinds) {}
     rpc GetStores(Empty) returns (Stores) {}
     rpc CreateStore(Store) returns (Store) {}
+    rpc UpdateStore(Store) returns (Store) {}
     rpc DeleteStore(Store) returns (Store) {}
     rpc VerifyStore(SimpleQuery) returns (CommonResult) {}
+
+    // secret related interfaces
+    rpc GetSecrets(Empty) returns (Secrets) {}
+    rpc CreateSecret(Secret) returns (CommonResult) {}
+    rpc DeleteSecret(Secret) returns (CommonResult) {}
+    rpc UpdateSecret(Secret) returns (CommonResult) {}
 }
 
 message Suites {
@@ -160,6 +176,7 @@ message Store {
   string password = 5;
   repeated Pair properties = 6;
   StoreKind kind = 7;
+  bool ready = 8;
 }
 
 message StoreKinds {
@@ -174,6 +191,30 @@ message StoreKind {
 message CommonResult {
   bool success = 1;
   string message = 2;
+}
+
+message SimpleList {
+  repeated Pair data = 1;
+}
+
+message SimpleName {
+  string name = 1;
+}
+
+message CodeGenerateRequest {
+  string TestSuite = 1;
+  string TestCase = 2;
+  string Generator = 3;
+}
+
+message Secrets {
+  repeated Secret data = 1;
+}
+
+message Secret {
+  string Name = 1;
+  string Value = 2;
+  string Description = 3;
 }
 
 message Empty {

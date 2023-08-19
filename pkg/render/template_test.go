@@ -32,6 +32,22 @@ func TestRender(t *testing.T) {
 			assert.Equal(t, 8, len(s))
 		},
 	}, {
+		name:   "md5",
+		text:   `{{md5 "linuxsuren"}}`,
+		expect: "b559b80ae1ba1c292d9b3265f265e76a",
+	}, {
+		name:   "base64",
+		text:   `{{base64 "linuxsuren"}}`,
+		expect: "bGludXhzdXJlbg==",
+	}, {
+		name:   "base64Decode",
+		text:   `{{base64Decode "bGludXhzdXJlbg=="}}`,
+		expect: "linuxsuren",
+	}, {
+		name:   "base64Decode with error",
+		text:   `{{base64Decode "error"}}`,
+		expect: "illegal base64 data at input byte 4",
+	}, {
 		name: "complex",
 		text: `{{(index .items 0).name}}?a=a&key={{randomKubernetesName}}`,
 		ctx: map[string]interface{}{
@@ -153,4 +169,19 @@ func TestGoDogGenerator(t *testing.T) {
 func TestGenerateJSONString(t *testing.T) {
 	result := generateJSONString([]string{"name", "age"})
 	assert.Equal(t, `{"age":"random","name":"random"}`, result)
+}
+
+func TestSecret(t *testing.T) {
+	SetSecretGetter(nil)
+	result, err := Render("", `{{secretValue "pass"}}`, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "no secret server", result)
+
+	expected := "password"
+	SetSecretGetter(&nonSecretGetter{
+		value: expected,
+	})
+	result, err = Render("", `{{secretValue "pass"}}`, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, expected, result)
 }

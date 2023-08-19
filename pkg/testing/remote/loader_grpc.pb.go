@@ -33,6 +33,7 @@ type LoaderClient interface {
 	GetTestCase(ctx context.Context, in *server.TestCase, opts ...grpc.CallOption) (*server.TestCase, error)
 	UpdateTestCase(ctx context.Context, in *server.TestCase, opts ...grpc.CallOption) (*server.TestCase, error)
 	DeleteTestCase(ctx context.Context, in *server.TestCase, opts ...grpc.CallOption) (*server.Empty, error)
+	Verify(ctx context.Context, in *server.Empty, opts ...grpc.CallOption) (*server.CommonResult, error)
 }
 
 type loaderClient struct {
@@ -133,6 +134,15 @@ func (c *loaderClient) DeleteTestCase(ctx context.Context, in *server.TestCase, 
 	return out, nil
 }
 
+func (c *loaderClient) Verify(ctx context.Context, in *server.Empty, opts ...grpc.CallOption) (*server.CommonResult, error) {
+	out := new(server.CommonResult)
+	err := c.cc.Invoke(ctx, "/remote.Loader/Verify", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LoaderServer is the server API for Loader service.
 // All implementations must embed UnimplementedLoaderServer
 // for forward compatibility
@@ -147,6 +157,7 @@ type LoaderServer interface {
 	GetTestCase(context.Context, *server.TestCase) (*server.TestCase, error)
 	UpdateTestCase(context.Context, *server.TestCase) (*server.TestCase, error)
 	DeleteTestCase(context.Context, *server.TestCase) (*server.Empty, error)
+	Verify(context.Context, *server.Empty) (*server.CommonResult, error)
 	mustEmbedUnimplementedLoaderServer()
 }
 
@@ -183,6 +194,9 @@ func (UnimplementedLoaderServer) UpdateTestCase(context.Context, *server.TestCas
 }
 func (UnimplementedLoaderServer) DeleteTestCase(context.Context, *server.TestCase) (*server.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteTestCase not implemented")
+}
+func (UnimplementedLoaderServer) Verify(context.Context, *server.Empty) (*server.CommonResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Verify not implemented")
 }
 func (UnimplementedLoaderServer) mustEmbedUnimplementedLoaderServer() {}
 
@@ -377,6 +391,24 @@ func _Loader_DeleteTestCase_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Loader_Verify_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(server.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LoaderServer).Verify(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remote.Loader/Verify",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LoaderServer).Verify(ctx, req.(*server.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Loader_ServiceDesc is the grpc.ServiceDesc for Loader service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -423,6 +455,240 @@ var Loader_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteTestCase",
 			Handler:    _Loader_DeleteTestCase_Handler,
+		},
+		{
+			MethodName: "Verify",
+			Handler:    _Loader_Verify_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "pkg/testing/remote/loader.proto",
+}
+
+// SecretServiceClient is the client API for SecretService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type SecretServiceClient interface {
+	GetSecret(ctx context.Context, in *server.Secret, opts ...grpc.CallOption) (*server.Secret, error)
+	GetSecrets(ctx context.Context, in *server.Empty, opts ...grpc.CallOption) (*server.Secrets, error)
+	CreateSecret(ctx context.Context, in *server.Secret, opts ...grpc.CallOption) (*server.CommonResult, error)
+	DeleteSecret(ctx context.Context, in *server.Secret, opts ...grpc.CallOption) (*server.CommonResult, error)
+	UpdateSecret(ctx context.Context, in *server.Secret, opts ...grpc.CallOption) (*server.CommonResult, error)
+}
+
+type secretServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewSecretServiceClient(cc grpc.ClientConnInterface) SecretServiceClient {
+	return &secretServiceClient{cc}
+}
+
+func (c *secretServiceClient) GetSecret(ctx context.Context, in *server.Secret, opts ...grpc.CallOption) (*server.Secret, error) {
+	out := new(server.Secret)
+	err := c.cc.Invoke(ctx, "/remote.SecretService/GetSecret", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *secretServiceClient) GetSecrets(ctx context.Context, in *server.Empty, opts ...grpc.CallOption) (*server.Secrets, error) {
+	out := new(server.Secrets)
+	err := c.cc.Invoke(ctx, "/remote.SecretService/GetSecrets", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *secretServiceClient) CreateSecret(ctx context.Context, in *server.Secret, opts ...grpc.CallOption) (*server.CommonResult, error) {
+	out := new(server.CommonResult)
+	err := c.cc.Invoke(ctx, "/remote.SecretService/CreateSecret", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *secretServiceClient) DeleteSecret(ctx context.Context, in *server.Secret, opts ...grpc.CallOption) (*server.CommonResult, error) {
+	out := new(server.CommonResult)
+	err := c.cc.Invoke(ctx, "/remote.SecretService/DeleteSecret", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *secretServiceClient) UpdateSecret(ctx context.Context, in *server.Secret, opts ...grpc.CallOption) (*server.CommonResult, error) {
+	out := new(server.CommonResult)
+	err := c.cc.Invoke(ctx, "/remote.SecretService/UpdateSecret", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SecretServiceServer is the server API for SecretService service.
+// All implementations must embed UnimplementedSecretServiceServer
+// for forward compatibility
+type SecretServiceServer interface {
+	GetSecret(context.Context, *server.Secret) (*server.Secret, error)
+	GetSecrets(context.Context, *server.Empty) (*server.Secrets, error)
+	CreateSecret(context.Context, *server.Secret) (*server.CommonResult, error)
+	DeleteSecret(context.Context, *server.Secret) (*server.CommonResult, error)
+	UpdateSecret(context.Context, *server.Secret) (*server.CommonResult, error)
+	mustEmbedUnimplementedSecretServiceServer()
+}
+
+// UnimplementedSecretServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedSecretServiceServer struct {
+}
+
+func (UnimplementedSecretServiceServer) GetSecret(context.Context, *server.Secret) (*server.Secret, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSecret not implemented")
+}
+func (UnimplementedSecretServiceServer) GetSecrets(context.Context, *server.Empty) (*server.Secrets, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSecrets not implemented")
+}
+func (UnimplementedSecretServiceServer) CreateSecret(context.Context, *server.Secret) (*server.CommonResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateSecret not implemented")
+}
+func (UnimplementedSecretServiceServer) DeleteSecret(context.Context, *server.Secret) (*server.CommonResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSecret not implemented")
+}
+func (UnimplementedSecretServiceServer) UpdateSecret(context.Context, *server.Secret) (*server.CommonResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateSecret not implemented")
+}
+func (UnimplementedSecretServiceServer) mustEmbedUnimplementedSecretServiceServer() {}
+
+// UnsafeSecretServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to SecretServiceServer will
+// result in compilation errors.
+type UnsafeSecretServiceServer interface {
+	mustEmbedUnimplementedSecretServiceServer()
+}
+
+func RegisterSecretServiceServer(s grpc.ServiceRegistrar, srv SecretServiceServer) {
+	s.RegisterService(&SecretService_ServiceDesc, srv)
+}
+
+func _SecretService_GetSecret_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(server.Secret)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecretServiceServer).GetSecret(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remote.SecretService/GetSecret",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecretServiceServer).GetSecret(ctx, req.(*server.Secret))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SecretService_GetSecrets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(server.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecretServiceServer).GetSecrets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remote.SecretService/GetSecrets",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecretServiceServer).GetSecrets(ctx, req.(*server.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SecretService_CreateSecret_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(server.Secret)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecretServiceServer).CreateSecret(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remote.SecretService/CreateSecret",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecretServiceServer).CreateSecret(ctx, req.(*server.Secret))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SecretService_DeleteSecret_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(server.Secret)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecretServiceServer).DeleteSecret(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remote.SecretService/DeleteSecret",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecretServiceServer).DeleteSecret(ctx, req.(*server.Secret))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SecretService_UpdateSecret_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(server.Secret)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecretServiceServer).UpdateSecret(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remote.SecretService/UpdateSecret",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecretServiceServer).UpdateSecret(ctx, req.(*server.Secret))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// SecretService_ServiceDesc is the grpc.ServiceDesc for SecretService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var SecretService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "remote.SecretService",
+	HandlerType: (*SecretServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetSecret",
+			Handler:    _SecretService_GetSecret_Handler,
+		},
+		{
+			MethodName: "GetSecrets",
+			Handler:    _SecretService_GetSecrets_Handler,
+		},
+		{
+			MethodName: "CreateSecret",
+			Handler:    _SecretService_CreateSecret_Handler,
+		},
+		{
+			MethodName: "DeleteSecret",
+			Handler:    _SecretService_DeleteSecret_Handler,
+		},
+		{
+			MethodName: "UpdateSecret",
+			Handler:    _SecretService_UpdateSecret_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -13,8 +13,10 @@ import (
 	"time"
 
 	_ "embed"
+	pprof "net/http/pprof"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	template "github.com/linuxsuren/api-testing/pkg/render"
 	"github.com/linuxsuren/api-testing/pkg/server"
 	"github.com/linuxsuren/api-testing/pkg/testing"
 	"github.com/linuxsuren/api-testing/pkg/testing/remote"
@@ -44,6 +46,7 @@ func createServerCmd(execer fakeruntime.Execer, gRPCServer gRPCServer, httpServe
 	flags.StringArrayVarP(&opt.localStorage, "local-storage", "", []string{"*.yaml"}, "The local storage path")
 	flags.StringVarP(&opt.consolePath, "console-path", "", "", "The path of the console")
 	flags.StringVarP(&opt.configDir, "config-dir", "", "$HOME/.config/atest", "The config directory")
+	flags.StringVarP(&opt.secretServer, "secret-server", "", "", "The secret server URL")
 	return
 }
 
@@ -57,6 +60,7 @@ type serverOption struct {
 	printProto   bool
 	localStorage []string
 	consolePath  string
+	secretServer string
 	configDir    string
 }
 
@@ -95,7 +99,16 @@ func (o *serverOption) runE(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	removeServer := server.NewRemoteServer(loader, remote.NewGRPCloaderFromStore(), o.configDir)
+	var secretServer remote.SecretServiceServer
+	if o.secretServer != "" {
+		if secretServer, err = remote.NewGRPCSecretFrom(o.secretServer); err != nil {
+			return
+		}
+
+		template.SetSecretGetter(remote.NewGRPCSecretGetter(secretServer))
+	}
+
+	removeServer := server.NewRemoteServer(loader, remote.NewGRPCloaderFromStore(), secretServer, o.configDir)
 	s := o.gRPCServer
 	go func() {
 		if gRPCServer, ok := s.(reflection.GRPCServer); ok {
@@ -112,6 +125,7 @@ func (o *serverOption) runE(cmd *cobra.Command, args []string) (err error) {
 		mux.HandlePath(http.MethodGet, "/", frontEndHandlerWithLocation(o.consolePath))
 		mux.HandlePath(http.MethodGet, "/assets/{asset}", frontEndHandlerWithLocation(o.consolePath))
 		mux.HandlePath(http.MethodGet, "/healthz", frontEndHandlerWithLocation(o.consolePath))
+		debugHandler(mux)
 		o.httpServer.WithHandler(mux)
 		log.Printf("HTTP server listening at %v", httplis.Addr())
 		err = o.httpServer.Serve(httplis)
@@ -151,6 +165,25 @@ func frontEndHandlerWithLocation(consolePath string) func(w http.ResponseWriter,
 			http.ServeFile(w, r, path.Join(consolePath, target))
 		}
 	}
+}
+
+func debugHandler(mux *runtime.ServeMux) {
+	mux.HandlePath(http.MethodGet, "/debug/pprof/{sub}", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+		switch sub := pathParams["sub"]; sub {
+		case "cmdline":
+			pprof.Cmdline(w, r)
+		case "profile":
+			pprof.Profile(w, r)
+		case "symbol":
+			pprof.Symbol(w, r)
+		case "trace":
+			pprof.Trace(w, r)
+		case "allocs", "block", "goroutine", "heap", "mutex", "threadcreate":
+			pprof.Index(w, r)
+		case "":
+			pprof.Index(w, r)
+		}
+	})
 }
 
 type gRPCServer interface {

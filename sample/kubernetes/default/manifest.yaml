@@ -1,0 +1,143 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: api-testing
+  name: api-testing
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: api-testing
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: api-testing
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: api-testing
+              topologyKey: kubernetes.io/hostname
+            weight: 5
+      containers:
+      - image: ghcr.io/linuxsuren/api-testing:master
+        name: server
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        volumeMounts:
+        - name: config
+          mountPath: /root/.config/atest/
+      - image: ghcr.io/linuxsuren/api-testing:master
+        name: extension-orm
+        command: [atest-store-orm]
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+      - image: ghcr.io/linuxsuren/api-testing:master
+        name: extension-s3
+        command: [atest-store-s3]
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+      volumes:
+      - name: config
+        configMap:
+          name: api-testing
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-testing
+spec:
+  ports:
+  - name: web
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: api-testing
+  sessionAffinity: None
+  type: NodePort
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-testing
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-testing
+            port:
+              number: 8080
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: api-testing
+data:
+  stores.yaml: |
+    - name: db
+      kind:
+        name: database
+        url: localhost:7071
+      url: localhost:4000
+      username: root
+      properties:
+        database: test
+    - name: s3
+      url: http://172.11.0.13:30999   # address of the s3 server
+      kind:
+        name: s3
+        url: localhost:7072           # address of the s3 storage extension
+      properties:
+        accessKeyID: 6e03rIMChrsZ6YZl
+        secretAccessKey: F0xH6o2qRYTyAUyRuXO81B4gj7zUrSaj
+        disableSSL:  true
+        forcepathstyle: true
+        bucket: vm1
+        region: cn

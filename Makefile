@@ -45,7 +45,15 @@ test-collector:
 test-store-orm:
 	go test github.com/linuxsuren/api-testing/extensions/store-orm/./... -cover -v -coverprofile=store-orm-coverage.out
 	go tool cover -func=store-orm-coverage.out
-test-all-backend: test test-collector test-store-orm
+test-store-s3:
+	go test github.com/linuxsuren/api-testing/extensions/store-s3/./... -cover -v -coverprofile=store-s3-coverage.out
+	go tool cover -func=store-s3-coverage.out
+test-store-git:
+	go test github.com/linuxsuren/api-testing/extensions/store-git/./... -cover -v -coverprofile=store-git-coverage.out
+	go tool cover -func=store-git-coverage.out
+test-operator:
+	cd operator && make test # converage file path: operator/cover.out
+test-all-backend: test test-collector test-store-orm test-store-s3 test-store-git #test-operator
 test-all: test-all-backend test-ui
 
 install-precheck:
@@ -63,6 +71,11 @@ grpc-gw:
     --grpc-gateway_opt paths=source_relative \
     --grpc-gateway_opt generate_unbound_methods=true \
     pkg/server/server.proto
+grpc-java:
+	protoc --plugin=protoc-gen-grpc-java \
+    --grpc-java_out=bin --proto_path=. \
+	pkg/server/server.proto \
+	pkg/testing/remote/loader.proto
 grpc-js:
 	protoc -I=pkg/server server.proto \
     --js_out=import_style=commonjs:bin \
